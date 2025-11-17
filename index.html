@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Semanal Completa</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Agenda Semanal Completa</h1>
+            <p class="description">Organize suas tarefas e compromissos da semana inteira</p>
+        </header>
+        
+        <div class="form-container">
+            <form id="task-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task">Atividade/Tarefa</label>
+                        <input type="text" id="task" placeholder="Ex: Reunião com equipe" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="day">Dia da Semana</label>
+                        <select id="day" required>
+                            <option value="">Selecione um dia</option>
+                            <option value="Segunda">Segunda-feira</option>
+                            <option value="Terça">Terça-feira</option>
+                            <option value="Quarta">Quarta-feira</option>
+                            <option value="Quinta">Quinta-feira</option>
+                            <option value="Sexta">Sexta-feira</option>
+                            <option value="Sábado">Sábado</option>
+                            <option value="Domingo">Domingo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="time">Horário</label>
+                        <input type="time" id="time" required>
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button type="submit">Adicionar Tarefa</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="agenda-container">
+            <h2>Minha Agenda Semanal</h2>
+            <div class="week-grid" id="week-grid">
+                <!-- A grade será gerada dinamicamente pelo JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
