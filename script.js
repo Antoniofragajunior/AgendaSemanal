@@ -12,6 +12,7 @@ class AgendaManager {
             'Sábado': 'saturday',
             'Domingo': 'sunday'
         };
+        this.editingTaskId = null;
         this.init();
     }
     
@@ -19,23 +20,49 @@ class AgendaManager {
     init() {
         this.renderGrid();
         this.setupEventListeners();
+        this.showNotification('Agenda carregada com sucesso!', 'success');
     }
     
     // Carregar tarefas do localStorage
     loadTasks() {
-        const storedTasks = localStorage.getItem('weeklyAgenda');
-        return storedTasks ? JSON.parse(storedTasks) : {};
+        try {
+            const storedTasks = localStorage.getItem('weeklyAgenda');
+            return storedTasks ? JSON.parse(storedTasks) : {};
+        } catch (error) {
+            console.error('Erro ao carregar tarefas:', error);
+            this.showNotification('Erro ao carregar tarefas salvas', 'error');
+            return {};
+        }
     }
     
     // Salvar tarefas no localStorage
     saveTasks() {
-        localStorage.setItem('weeklyAgenda', JSON.stringify(this.tasks));
+        try {
+            localStorage.setItem('weeklyAgenda', JSON.stringify(this.tasks));
+        } catch (error) {
+            console.error('Erro ao salvar tarefas:', error);
+            this.showNotification('Erro ao salvar tarefas', 'error');
+        }
     }
     
     // Adicionar uma nova tarefa
     addTask(task, day, time) {
-        // Criar ID único para a tarefa
-        const id = Date.now().toString();
+        // Validar dados
+        if (!task.trim() || !day || !time) {
+            this.showNotification('Preencha todos os campos corretamente', 'error');
+            return;
+        }
+        
+        let id;
+        
+        // Se estiver editando, usar o ID existente
+        if (this.editingTaskId) {
+            id = this.editingTaskId;
+            this.removeTask(id, false); // Remove a versão antiga sem salvar ainda
+        } else {
+            // Criar ID único para a tarefa
+            id = Date.now().toString();
+        }
         
         // Inicializar o array do dia se não existir
         if (!this.tasks[day]) {
@@ -57,10 +84,18 @@ class AgendaManager {
         
         // Atualizar a grade
         this.renderGrid();
+        
+        // Mostrar mensagem de sucesso
+        if (this.editingTaskId) {
+            this.showNotification('Tarefa atualizada com sucesso!', 'success');
+            this.cancelEdit();
+        } else {
+            this.showNotification('Tarefa adicionada com sucesso!', 'success');
+        }
     }
     
     // Remover uma tarefa
-    removeTask(id) {
+    removeTask(id, showNotification = true) {
         for (const day in this.tasks) {
             this.tasks[day] = this.tasks[day].filter(task => task.id !== id);
             
@@ -75,6 +110,45 @@ class AgendaManager {
         
         // Atualizar a grade
         this.renderGrid();
+        
+        // Mostrar mensagem
+        if (showNotification) {
+            this.showNotification('Tarefa removida com sucesso!', 'success');
+        }
+    }
+    
+    // Iniciar edição de uma tarefa
+    startEdit(id) {
+        // Encontrar a tarefa
+        for (const day in this.tasks) {
+            const task = this.tasks[day].find(t => t.id === id);
+            if (task) {
+                // Preencher o formulário com os dados da tarefa
+                document.getElementById('task').value = task.task;
+                document.getElementById('day').value = day;
+                document.getElementById('time').value = task.time;
+                
+                // Alterar o texto do botão
+                document.getElementById('submit-btn').textContent = 'Atualizar Tarefa';
+                
+                // Salvar o ID da tarefa sendo editada
+                this.editingTaskId = id;
+                
+                // Rolar até o formulário
+                document.querySelector('.form-container').scrollIntoView({ 
+                    behavior: 'smooth' 
+                });
+                
+                break;
+            }
+        }
+    }
+    
+    // Cancelar edição
+    cancelEdit() {
+        this.editingTaskId = null;
+        document.getElementById('task-form').reset();
+        document.getElementById('submit-btn').textContent = 'Adicionar Tarefa';
     }
     
     // Renderizar a grade semanal
@@ -84,9 +158,16 @@ class AgendaManager {
         
         this.days.forEach(day => {
             const dayClass = this.dayClasses[day];
+            
+            // Determinar o texto do cabeçalho
+            let dayHeaderText = day;
+            if (day !== 'Sábado' && day !== 'Domingo') {
+                dayHeaderText += '-feira';
+            }
+            
             html += `
                 <div class="day-column ${dayClass}">
-                    <div class="day-header">${day}-feira</div>
+                    <div class="day-header">${dayHeaderText}</div>
                     <div class="tasks-container" id="tasks-${day}">
             `;
             
@@ -96,12 +177,15 @@ class AgendaManager {
                         <div class="task-item">
                             <div class="task-time">${this.formatTime(task.time)}</div>
                             <div class="task-content">${task.task}</div>
-                            <button class="delete-btn" data-id="${task.id}">X</button>
+                            <div class="task-actions">
+                                <button class="edit-btn" data-id="${task.id}">Editar</button>
+                                <button class="delete-btn" data-id="${task.id}">X</button>
+                            </div>
                         </div>
                     `;
                 });
             } else {
-                html += `<div class="empty-day">Nenhuma tarefa</div>`;
+                html += `<div class="empty-day">Nenhuma tarefa agendada</div>`;
             }
             
             html += `
@@ -112,8 +196,8 @@ class AgendaManager {
         
         weekGrid.innerHTML = html;
         
-        // Adicionar event listeners aos botões de exclusão
-        this.setupDeleteButtons();
+        // Adicionar event listeners aos botões
+        this.setupActionButtons();
     }
     
     // Formatar horário para exibição
@@ -137,25 +221,57 @@ class AgendaManager {
             const day = daySelect.value;
             const time = timeInput.value;
             
-            if (task && day && time) {
-                this.addTask(task, day, time);
-                
-                // Limpar formulário
+            this.addTask(task, day, time);
+            
+            // Limpar formulário apenas se não estiver editando
+            if (!this.editingTaskId) {
                 form.reset();
             }
         });
+        
+        // Adicionar botão de cancelar edição quando estiver editando
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancelar Edição';
+        cancelButton.type = 'button';
+        cancelButton.style.marginLeft = '10px';
+        cancelButton.style.backgroundColor = '#6c757d';
+        cancelButton.addEventListener('click', () => this.cancelEdit());
+        
+        const submitButton = document.getElementById('submit-btn').parentNode;
+        submitButton.appendChild(cancelButton);
     }
     
-    // Configurar botões de exclusão
-    setupDeleteButtons() {
+    // Configurar botões de ação (excluir e editar)
+    setupActionButtons() {
         const deleteButtons = document.querySelectorAll('.delete-btn');
+        const editButtons = document.querySelectorAll('.edit-btn');
         
         deleteButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const id = e.target.getAttribute('data-id');
-                this.removeTask(id);
+                if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                    this.removeTask(id);
+                }
             });
         });
+        
+        editButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const id = e.target.getAttribute('data-id');
+                this.startEdit(id);
+            });
+        });
+    }
+    
+    // Mostrar notificação
+    showNotification(message, type) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type} show`;
+        
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
     }
 }
 
